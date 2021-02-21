@@ -13,6 +13,7 @@ WINDOW_CAPTION: Final[str] = "Boat"
 FONT_SIZE: Final[int] = 20
 FONT_COLOR: Final[pygame.Color] = pygame.Color(0, 0, 0)
 BOAT_SPEED_DISPLAY_COORDINATES: tuple[int, int] = (10, 700)
+STEERING_WHEEL_ANGLE_DISPLAY_COORDINATES: tuple[int, int] = (10, 750)
 font: Font
 
 INITIAL_X_COORDINATE: Final[int] = X_WINDOW_SIZE // 2
@@ -59,9 +60,9 @@ def execute_run_loop() -> None:
         elif pressed_keys[pygame.K_DOWN]:
             boat.decrease_speed()
         elif pressed_keys[pygame.K_LEFT]:
-            boat.move_left()
+            boat.turn_steering_wheel_left()
         elif pressed_keys[pygame.K_RIGHT]:
-            boat.move_right()
+            boat.turn_steering_wheel_right()
 
         for event in pygame.event.get():
             if event.type == pygame.QUIT:
@@ -72,7 +73,7 @@ def execute_run_loop() -> None:
             elif event.type == pygame.MOUSEBUTTONDOWN and event.button == RIGHT_MOUSE_BUTTON:
                 setpoint.set_coordinates(None, None)
 
-        lateral_external_force.use_force()
+        # lateral_external_force.use_force()
         boat.go_ahead()
         redraw_display(display_surface)
 
@@ -94,6 +95,13 @@ def redraw_display(display_surface: pygame.Surface) -> None:
         display_surface,
         BOAT_SPEED_DISPLAY_COORDINATES,
         f"Boat speed: {boat.get_current_speed()}",
+        FONT_COLOR
+    )
+
+    font.render_to(
+        display_surface,
+        STEERING_WHEEL_ANGLE_DISPLAY_COORDINATES,
+        f"Steering wheel angle: {boat.get_current_steering_wheel_angle()}",
         FONT_COLOR
     )
 
