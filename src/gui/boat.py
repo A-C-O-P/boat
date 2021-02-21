@@ -3,6 +3,7 @@ from typing import Final
 
 SPEED_DELTA: Final[float] = 0.001
 RESISTANCE_SPEED: Final[float] = 0.0005
+MAX_ABSOLUTE_SPEED: Final[float] = 0.5
 
 x_coordinate: float
 y_coordinate: float
@@ -40,11 +41,19 @@ def go_ahead() -> None:
 
 def increase_speed() -> None:
     global boat_speed
+
+    if math.isclose(boat_speed, MAX_ABSOLUTE_SPEED):
+        return
+
     boat_speed += SPEED_DELTA
 
 
 def decrease_speed() -> None:
     global boat_speed
+
+    if math.isclose(abs(boat_speed), MAX_ABSOLUTE_SPEED):
+        return
+
     boat_speed -= SPEED_DELTA
 
 
