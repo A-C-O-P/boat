@@ -3,7 +3,7 @@ from typing import Final
 import pygame
 from pygame.freetype import Font
 
-from src.gui import boat
+from src.gui import boat, setpoint
 
 X_WINDOW_SIZE: Final[int] = 1000
 Y_WINDOW_SIZE: Final[int] = 800
@@ -23,6 +23,12 @@ FPS: Final[int] = 300
 BOAT_COLOR: Final[pygame.Color] = pygame.Color(34, 139, 34)
 BOAT_CIRCLE_RADIUS: Final[int] = 20
 
+SETPOINT_COLOR: Final[pygame.Color] = pygame.Color(255, 0, 0)
+SETPOINT_CIRCLE_RADIUS: Final[int] = 5
+
+LEFT_MOUSE_BUTTON = 1
+RIGHT_MOUSE_BUTTON = 3
+
 
 def init_app_window() -> None:
     global font
@@ -37,6 +43,8 @@ def init_app_window() -> None:
 
 def execute_run_loop() -> None:
     boat.init_coordinates(INITIAL_X_COORDINATE, INITIAL_Y_COORDINATE)
+    setpoint.set_coordinates(None, None)
+
     display_surface = pygame.display.get_surface()
     redraw_display(display_surface)
     clock = pygame.time.Clock()
@@ -58,6 +66,11 @@ def execute_run_loop() -> None:
         for event in pygame.event.get():
             if event.type == pygame.QUIT:
                 return
+            elif event.type == pygame.MOUSEBUTTONDOWN and event.button == LEFT_MOUSE_BUTTON:
+                setpoint_x_coordinate, setpoint_y_coordinate = convert_coordinates(pygame.mouse.get_pos())
+                setpoint.set_coordinates(setpoint_x_coordinate, setpoint_y_coordinate)
+            elif event.type == pygame.MOUSEBUTTONDOWN and event.button == RIGHT_MOUSE_BUTTON:
+                setpoint.set_coordinates(None, None)
 
         boat.go_ahead()
         redraw_display(display_surface)
@@ -67,7 +80,7 @@ def redraw_display(display_surface: pygame.Surface) -> None:
     display_surface.fill(BACKGROUND_COLOR)
 
     boat_coordinates = boat.get_current_coordinates()
-    boat_coordinates = convert_to_pygame_coordinates(boat_coordinates)
+    boat_coordinates = convert_coordinates(boat_coordinates)
 
     pygame.draw.circle(
         display_surface,
@@ -83,8 +96,24 @@ def redraw_display(display_surface: pygame.Surface) -> None:
         FONT_COLOR
     )
 
+    draw_setpoint(display_surface)
+
     pygame.display.flip()
 
 
-def convert_to_pygame_coordinates(coordinates: tuple[float, float]) -> tuple[float, float]:
+def draw_setpoint(display_surface: pygame.Surface):
+    setpoint_coordinates = setpoint.get_coordinates()
+
+    if not (setpoint_coordinates[0] is None and setpoint_coordinates[1] is None):
+        setpoint_coordinates = convert_coordinates(setpoint_coordinates)
+
+        pygame.draw.circle(
+            display_surface,
+            SETPOINT_COLOR,
+            setpoint_coordinates,
+            SETPOINT_CIRCLE_RADIUS
+        )
+
+
+def convert_coordinates(coordinates: tuple[float, float]) -> tuple[float, float]:
     return coordinates[0], Y_WINDOW_SIZE - coordinates[1]
