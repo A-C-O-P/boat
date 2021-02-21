@@ -3,7 +3,7 @@ from typing import Final
 import pygame
 from pygame.freetype import Font
 
-from src.gui import boat, setpoint
+from src.gui import boat, setpoint, lateral_external_force
 
 X_WINDOW_SIZE: Final[int] = 1000
 Y_WINDOW_SIZE: Final[int] = 800
@@ -26,8 +26,8 @@ BOAT_CIRCLE_RADIUS: Final[int] = 20
 SETPOINT_COLOR: Final[pygame.Color] = pygame.Color(255, 0, 0)
 SETPOINT_CIRCLE_RADIUS: Final[int] = 5
 
-LEFT_MOUSE_BUTTON = 1
-RIGHT_MOUSE_BUTTON = 3
+LEFT_MOUSE_BUTTON: Final[int] = 1
+RIGHT_MOUSE_BUTTON: Final[int] = 3
 
 
 def init_app_window() -> None:
@@ -72,6 +72,7 @@ def execute_run_loop() -> None:
             elif event.type == pygame.MOUSEBUTTONDOWN and event.button == RIGHT_MOUSE_BUTTON:
                 setpoint.set_coordinates(None, None)
 
+        lateral_external_force.use_force()
         boat.go_ahead()
         redraw_display(display_surface)
 
@@ -101,7 +102,7 @@ def redraw_display(display_surface: pygame.Surface) -> None:
     pygame.display.flip()
 
 
-def draw_setpoint(display_surface: pygame.Surface):
+def draw_setpoint(display_surface: pygame.Surface) -> None:
     setpoint_coordinates = setpoint.get_coordinates()
 
     if not (setpoint_coordinates[0] is None and setpoint_coordinates[1] is None):

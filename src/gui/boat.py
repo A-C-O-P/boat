@@ -16,6 +16,11 @@ def init_coordinates(init_x_coordinate: float, init_y_coordinate: float) -> None
     y_coordinate = init_y_coordinate
 
 
+def set_x_coordinate(x: float) -> None:
+    global x_coordinate
+    x_coordinate = x
+
+
 def get_current_coordinates() -> tuple[float, float]:
     return x_coordinate, y_coordinate
 
