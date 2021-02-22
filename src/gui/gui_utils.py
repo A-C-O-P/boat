@@ -55,7 +55,19 @@ def execute_run_loop() -> None:
 
         pressed_keys = pygame.key.get_pressed()
 
-        if pressed_keys[pygame.K_UP]:
+        if pressed_keys[pygame.K_UP] and pressed_keys[pygame.K_LEFT]:
+            boat.increase_speed()
+            boat.turn_steering_wheel_left()
+        elif pressed_keys[pygame.K_UP] and pressed_keys[pygame.K_RIGHT]:
+            boat.increase_speed()
+            boat.turn_steering_wheel_right()
+        elif pressed_keys[pygame.K_DOWN] and pressed_keys[pygame.K_LEFT]:
+            boat.decrease_speed()
+            boat.turn_steering_wheel_left()
+        elif pressed_keys[pygame.K_DOWN] and pressed_keys[pygame.K_RIGHT]:
+            boat.decrease_speed()
+            boat.turn_steering_wheel_right()
+        elif pressed_keys[pygame.K_UP]:
             boat.increase_speed()
         elif pressed_keys[pygame.K_DOWN]:
             boat.decrease_speed()
