@@ -1,9 +1,10 @@
-from typing import Final
+from typing import Final, Sequence
 
 import pygame
 from pygame.freetype import Font
+from pygame.math import Vector2
 
-from src.gui import boat, setpoint, lateral_external_force
+from src.gui import boat, lateral_external_force, setpoint
 
 X_WINDOW_SIZE: Final[int] = 1000
 Y_WINDOW_SIZE: Final[int] = 800
@@ -12,14 +13,15 @@ WINDOW_CAPTION: Final[str] = "Boat"
 
 FONT_SIZE: Final[int] = 20
 FONT_COLOR: Final[pygame.Color] = pygame.Color(0, 0, 0)
-BOAT_SPEED_DISPLAY_COORDINATES: tuple[int, int] = (10, 700)
+BOAT_VELOCITY_DISPLAY_COORDINATES: tuple[int, int] = (10, 700)
 STEERING_WHEEL_ANGLE_DISPLAY_COORDINATES: tuple[int, int] = (10, 750)
 font: Font
 
-INITIAL_X_COORDINATE: Final[int] = X_WINDOW_SIZE // 2
-INITIAL_Y_COORDINATE: Final[int] = 0
+INITIAL_TOP_ANGLE_LOCATION: Final[Vector2] = Vector2(X_WINDOW_SIZE // 2, 50)
+INITIAL_LEFT_ANGLE_LOCATION: Final[Vector2] = Vector2(X_WINDOW_SIZE // 2 - 20, 0)
+INITIAL_RIGHT_ANGLE_LOCATION: Final[Vector2] = Vector2(X_WINDOW_SIZE // 2 + 20, 0)
 
-FPS: Final[int] = 300
+FPS: Final[int] = 60
 
 BOAT_COLOR: Final[pygame.Color] = pygame.Color(34, 139, 34)
 BOAT_CIRCLE_RADIUS: Final[int] = 20
@@ -43,7 +45,7 @@ def init_app_window() -> None:
 
 
 def execute_run_loop() -> None:
-    boat.init_coordinates(INITIAL_X_COORDINATE, INITIAL_Y_COORDINATE)
+    boat.init_boat(INITIAL_TOP_ANGLE_LOCATION, INITIAL_LEFT_ANGLE_LOCATION, INITIAL_RIGHT_ANGLE_LOCATION)
     setpoint.set_coordinates(None, None)
 
     display_surface = pygame.display.get_surface()
@@ -51,30 +53,10 @@ def execute_run_loop() -> None:
     clock = pygame.time.Clock()
 
     while True:
-        clock.tick_busy_loop(FPS)
+        delta_time = clock.get_time() / 1000
 
         pressed_keys = pygame.key.get_pressed()
-
-        if pressed_keys[pygame.K_UP] and pressed_keys[pygame.K_LEFT]:
-            boat.increase_speed()
-            boat.turn_steering_wheel_left()
-        elif pressed_keys[pygame.K_UP] and pressed_keys[pygame.K_RIGHT]:
-            boat.increase_speed()
-            boat.turn_steering_wheel_right()
-        elif pressed_keys[pygame.K_DOWN] and pressed_keys[pygame.K_LEFT]:
-            boat.decrease_speed()
-            boat.turn_steering_wheel_left()
-        elif pressed_keys[pygame.K_DOWN] and pressed_keys[pygame.K_RIGHT]:
-            boat.decrease_speed()
-            boat.turn_steering_wheel_right()
-        elif pressed_keys[pygame.K_UP]:
-            boat.increase_speed()
-        elif pressed_keys[pygame.K_DOWN]:
-            boat.decrease_speed()
-        elif pressed_keys[pygame.K_LEFT]:
-            boat.turn_steering_wheel_left()
-        elif pressed_keys[pygame.K_RIGHT]:
-            boat.turn_steering_wheel_right()
+        handle_pressed_keys(pressed_keys, delta_time)
 
         for event in pygame.event.get():
             if event.type == pygame.QUIT:
@@ -85,28 +67,47 @@ def execute_run_loop() -> None:
             elif event.type == pygame.MOUSEBUTTONDOWN and event.button == RIGHT_MOUSE_BUTTON:
                 setpoint.set_coordinates(None, None)
 
-        # lateral_external_force.use_force()
-        boat.go_ahead()
+        lateral_external_force.use_force()
+        boat.go_ahead(delta_time)
         redraw_display(display_surface)
+        clock.tick_busy_loop(FPS)
+
+
+def handle_pressed_keys(pressed_keys: Sequence[bool], delta_time: float) -> None:
+    if pressed_keys[pygame.K_UP]:
+        boat.increase_velocity(delta_time)
+    elif pressed_keys[pygame.K_DOWN]:
+        boat.decrease_velocity(delta_time)
+    else:
+        boat.apply_resistance_deceleration(delta_time)
+
+    if pressed_keys[pygame.K_LEFT]:
+        boat.turn_steering_wheel_left(delta_time)
+    elif pressed_keys[pygame.K_RIGHT]:
+        boat.turn_steering_wheel_right(delta_time)
+    else:
+        boat.apply_resistance_steering_wheel_rotate()
 
 
 def redraw_display(display_surface: pygame.Surface) -> None:
     display_surface.fill(BACKGROUND_COLOR)
 
-    boat_coordinates = boat.get_current_coordinates()
-    boat_coordinates = convert_coordinates(boat_coordinates)
+    top_angle_location, left_angle_location, right_angle_location = boat.get_current_coordinates()
 
-    pygame.draw.circle(
+    top_angle_location = convert_coordinates((top_angle_location.x, top_angle_location.y))
+    left_angle_location = convert_coordinates((left_angle_location.x, left_angle_location.y))
+    right_angle_location = convert_coordinates((right_angle_location.x, right_angle_location.y))
+
+    pygame.draw.polygon(
         display_surface,
         BOAT_COLOR,
-        boat_coordinates,
-        BOAT_CIRCLE_RADIUS
+        [top_angle_location, left_angle_location, right_angle_location]
     )
 
     font.render_to(
         display_surface,
-        BOAT_SPEED_DISPLAY_COORDINATES,
-        f"Boat speed: {boat.get_current_speed()}",
+        BOAT_VELOCITY_DISPLAY_COORDINATES,
+        f"Boat velocity: {boat.get_current_velocity()}",
         FONT_COLOR
     )
 
