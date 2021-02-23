@@ -94,6 +94,13 @@ def redraw_display(display_surface: pygame.Surface) -> None:
 
     top_angle_location, left_angle_location, right_angle_location = boat.get_current_coordinates()
 
+    boat_center_location = boat.get_center_location()
+    boat_angle = convert_angle(boat.get_angle())
+
+    top_angle_location = rotate_angle_coordinate(top_angle_location, boat_center_location, boat_angle)
+    left_angle_location = rotate_angle_coordinate(left_angle_location, boat_center_location, boat_angle)
+    right_angle_location = rotate_angle_coordinate(right_angle_location, boat_center_location, boat_angle)
+
     top_angle_location = convert_coordinates((top_angle_location.x, top_angle_location.y))
     left_angle_location = convert_coordinates((left_angle_location.x, left_angle_location.y))
     right_angle_location = convert_coordinates((right_angle_location.x, right_angle_location.y))
@@ -121,6 +128,17 @@ def redraw_display(display_surface: pygame.Surface) -> None:
     draw_setpoint(display_surface)
 
     pygame.display.flip()
+
+
+def convert_angle(angle: float) -> float:
+    return -angle
+
+
+def rotate_angle_coordinate(angle_location: Vector2, boat_center_location: Vector2, boat_angle: float) -> Vector2:
+    reduced_angle_location = angle_location - boat_center_location
+    reduced_angle_location.rotate_ip_rad(boat_angle)
+
+    return reduced_angle_location + boat_center_location
 
 
 def draw_setpoint(display_surface: pygame.Surface) -> None:

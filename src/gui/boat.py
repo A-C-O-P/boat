@@ -30,11 +30,17 @@ steering_wheel_angle: float = 0
 
 def init_boat(init_boat_top_angle_location: Vector2, init_boat_left_angle_location: Vector2,
               init_boat_right_angle_location: Vector2) -> None:
-    global boat_top_angle_location, boat_left_angle_location, boat_right_angle_location, boat_length
+    global boat_top_angle_location, boat_left_angle_location, boat_right_angle_location
+    global boat_center_location, boat_length
 
     boat_top_angle_location = init_boat_top_angle_location
     boat_left_angle_location = init_boat_left_angle_location
     boat_right_angle_location = init_boat_right_angle_location
+
+    boat_center_location = Vector2(
+        boat_top_angle_location.x,
+        (boat_top_angle_location.y - boat_left_angle_location.y) / 2
+    )
 
     boat_length = boat_top_angle_location.y - boat_left_angle_location.y
 
@@ -111,8 +117,8 @@ def apply_acceleration(delta_time: float) -> None:
 
 
 def rotate_boat(delta_time: float) -> None:
-    global steering_wheel_angle, boat_top_angle_location, boat_left_angle_location
-    global boat_right_angle_location, boat_angle
+    global steering_wheel_angle, boat_angle, boat_center_location
+    global boat_top_angle_location, boat_left_angle_location, boat_right_angle_location
 
     steering_wheel_angle = get_max_value_when_overflow(
         steering_wheel_angle, MAX_STEERING_WHEEL_ANGLE
@@ -129,6 +135,7 @@ def rotate_boat(delta_time: float) -> None:
     boat_top_angle_location += velocity_vector
     boat_left_angle_location += velocity_vector
     boat_right_angle_location += velocity_vector
+    boat_center_location += velocity_vector
 
     boat_angle += angular_velocity * delta_time
 
@@ -142,6 +149,14 @@ def get_max_value_when_overflow(current_value: float, max_value: float) -> float
 
 def get_current_coordinates() -> tuple[Vector2, Vector2, Vector2]:
     return boat_top_angle_location, boat_left_angle_location, boat_right_angle_location
+
+
+def get_center_location() -> Vector2:
+    return boat_center_location
+
+
+def get_angle() -> float:
+    return boat_angle
 
 
 def get_current_velocity() -> float:
