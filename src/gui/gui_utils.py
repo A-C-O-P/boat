@@ -4,6 +4,7 @@ import pygame
 from pygame.freetype import Font
 from pygame.math import Vector2
 
+from src import compass
 from src.gui import boat, setpoint
 
 X_WINDOW_SIZE: Final[int] = 1000
@@ -13,8 +14,9 @@ WINDOW_CAPTION: Final[str] = "Boat"
 
 FONT_SIZE: Final[int] = 20
 FONT_COLOR: Final[pygame.Color] = pygame.Color(0, 0, 0)
-BOAT_VELOCITY_DISPLAY_COORDINATES: tuple[int, int] = (10, 700)
-STEERING_WHEEL_ANGLE_DISPLAY_COORDINATES: tuple[int, int] = (10, 750)
+BOAT_VELOCITY_DISPLAY_COORDINATES: tuple[int, int] = (10, 650)
+STEERING_WHEEL_ANGLE_DISPLAY_COORDINATES: tuple[int, int] = (10, 700)
+COMPASS_DATA_DISPLAY_COORDINATES: tuple[int, int] = (10, 750)
 font: Font
 
 INITIAL_TOP_ANGLE_LOCATION: Final[Vector2] = Vector2(X_WINDOW_SIZE // 2, 50)
@@ -138,6 +140,13 @@ def redraw_display(display_surface: pygame.Surface) -> None:
         FONT_COLOR
     )
 
+    font.render_to(
+        display_surface,
+        COMPASS_DATA_DISPLAY_COORDINATES,
+        f"Compass data: {get_compass_data()}°",
+        FONT_COLOR
+    )
+
     draw_setpoint(display_surface)
 
     pygame.display.flip()
@@ -152,6 +161,11 @@ def rotate_angle_coordinate(angle_location: Vector2, boat_center_location: Vecto
     reduced_angle_location.rotate_ip_rad(boat_angle)
 
     return reduced_angle_location + boat_center_location
+
+
+def get_compass_data() -> float:
+    boat_x_direction_vector, boat_y_direction_vector = boat.get_direction_vector()
+    return round(compass.calc_deviation_from_north(boat_x_direction_vector, boat_y_direction_vector))
 
 
 def draw_setpoint(display_surface: pygame.Surface) -> None:

@@ -133,6 +133,11 @@ def rotate_boat(delta_time: float) -> None:
     boat_angle += angular_velocity * delta_time
 
 
+def get_direction_vector() -> tuple[float, float]:
+    boat_direction_vector = Vector2(0, 1).rotate_rad(-boat_angle)
+    return boat_direction_vector.x, boat_direction_vector.y
+
+
 def get_max_value_when_overflow(current_value: float, max_value: float) -> float:
     return max(
         -max_value,
