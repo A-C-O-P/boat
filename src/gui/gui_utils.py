@@ -4,7 +4,7 @@ import pygame
 from pygame.freetype import Font
 from pygame.math import Vector2
 
-from src.gui import boat, lateral_external_force, setpoint
+from src.gui import boat, setpoint
 
 X_WINDOW_SIZE: Final[int] = 1000
 Y_WINDOW_SIZE: Final[int] = 800
@@ -31,6 +31,8 @@ SETPOINT_CIRCLE_RADIUS: Final[int] = 5
 
 LEFT_MOUSE_BUTTON: Final[int] = 1
 RIGHT_MOUSE_BUTTON: Final[int] = 3
+
+EXTERNAL_FORCE_VECTOR: Final[Vector2] = Vector2(15, 0)
 
 
 def init_app_window() -> None:
@@ -67,7 +69,7 @@ def execute_run_loop() -> None:
             elif event.type == pygame.MOUSEBUTTONDOWN and event.button == RIGHT_MOUSE_BUTTON:
                 setpoint.set_coordinates(None, None)
 
-        lateral_external_force.use_force()
+        apply_external_force(delta_time)
         boat.go_ahead(delta_time)
         redraw_display(display_surface)
         clock.tick_busy_loop(FPS)
@@ -89,10 +91,21 @@ def handle_pressed_keys(pressed_keys: Sequence[bool], delta_time: float) -> None
         boat.apply_resistance_steering_wheel_rotate()
 
 
+def apply_external_force(delta_time: float) -> None:
+    external_force_location_delta = EXTERNAL_FORCE_VECTOR * delta_time
+    top_angle_location, left_angle_location, right_angle_location, center_location = boat.get_current_coordinates()
+    boat.set_coordinates(
+        top_angle_location + external_force_location_delta,
+        left_angle_location + external_force_location_delta,
+        right_angle_location + external_force_location_delta,
+        center_location + external_force_location_delta
+    )
+
+
 def redraw_display(display_surface: pygame.Surface) -> None:
     display_surface.fill(BACKGROUND_COLOR)
 
-    top_angle_location, left_angle_location, right_angle_location = boat.get_current_coordinates()
+    top_angle_location, left_angle_location, right_angle_location, _ = boat.get_current_coordinates()
 
     boat_center_location = boat.get_center_location()
     boat_angle = convert_angle(boat.get_angle())

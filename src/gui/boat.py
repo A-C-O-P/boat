@@ -3,15 +3,13 @@ from typing import Final
 
 from pygame.math import Vector2
 
-BREAK_DECELERATION: Final[float] = 20
-
 ACCELERATION_RESISTANCE: Final[float] = 10
 STEERING_WHEEL_ANGLE_RESISTANCE: Final[float] = math.radians(0.5)
 
 BOAT_ACCELERATION_DELTA: Final[float] = 5
-STEERING_WHEEL_ANGLE_DELTA: Final[float] = math.radians(10)
+STEERING_WHEEL_ANGLE_DELTA: Final[float] = math.radians(50)
 
-MAX_VELOCITY: Final[float] = 200
+MAX_VELOCITY: Final[float] = 100
 MAX_ACCELERATION: Final[float] = 50
 MAX_STEERING_WHEEL_ANGLE: Final[float] = math.radians(30)
 
@@ -47,20 +45,12 @@ def init_boat(init_boat_top_angle_location: Vector2, init_boat_left_angle_locati
 
 def increase_velocity(delta_time: float) -> None:
     global boat_acceleration
-
-    if is_positive_velocity():
-        boat_acceleration += BOAT_ACCELERATION_DELTA * delta_time
-    else:
-        boat_acceleration = BREAK_DECELERATION
+    boat_acceleration += BOAT_ACCELERATION_DELTA * delta_time
 
 
 def decrease_velocity(delta_time: float) -> None:
     global boat_acceleration
-
-    if is_positive_velocity():
-        boat_acceleration = -BREAK_DECELERATION
-    else:
-        boat_acceleration -= BOAT_ACCELERATION_DELTA * delta_time
+    boat_acceleration -= BOAT_ACCELERATION_DELTA * delta_time
 
 
 def is_positive_velocity() -> bool:
@@ -88,6 +78,9 @@ def turn_steering_wheel_right(delta_time: float) -> None:
 
 def apply_resistance_steering_wheel_rotate() -> None:
     global steering_wheel_angle
+
+    if math.isclose(boat_velocity.y, 0):
+        return
 
     if (math.isclose(abs(steering_wheel_angle), 0)
             or abs(steering_wheel_angle) < STEERING_WHEEL_ANGLE_RESISTANCE):
@@ -147,8 +140,8 @@ def get_max_value_when_overflow(current_value: float, max_value: float) -> float
     )
 
 
-def get_current_coordinates() -> tuple[Vector2, Vector2, Vector2]:
-    return boat_top_angle_location, boat_left_angle_location, boat_right_angle_location
+def get_current_coordinates() -> tuple[Vector2, Vector2, Vector2, Vector2]:
+    return boat_top_angle_location, boat_left_angle_location, boat_right_angle_location, boat_center_location
 
 
 def get_center_location() -> Vector2:
@@ -167,9 +160,11 @@ def get_current_steering_wheel_angle() -> float:
     return round(math.degrees(steering_wheel_angle), 2)
 
 
-def set_coordinates(top_angle_location: Vector2, left_angle_location: Vector2, right_angle_location: Vector2) -> None:
-    global boat_top_angle_location, boat_left_angle_location, boat_right_angle_location
+def set_coordinates(top_angle_location: Vector2, left_angle_location: Vector2,
+                    right_angle_location: Vector2, center_location: Vector2) -> None:
+    global boat_top_angle_location, boat_left_angle_location, boat_right_angle_location, boat_center_location
 
     boat_top_angle_location = top_angle_location
     boat_left_angle_location = left_angle_location
     boat_right_angle_location = right_angle_location
+    boat_center_location = center_location
