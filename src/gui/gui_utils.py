@@ -129,14 +129,14 @@ def redraw_display(display_surface: pygame.Surface) -> None:
     font.render_to(
         display_surface,
         BOAT_VELOCITY_DISPLAY_COORDINATES,
-        f"Boat velocity: {boat.get_current_velocity()}",
+        f"Boat velocity: {boat.get_current_velocity()} px/sec",
         FONT_COLOR
     )
 
     font.render_to(
         display_surface,
         STEERING_WHEEL_ANGLE_DISPLAY_COORDINATES,
-        f"Steering wheel angle: {boat.get_current_steering_wheel_angle()}",
+        f"Steering wheel angle: {boat.get_current_steering_wheel_angle()}°",
         FONT_COLOR
     )
 
