@@ -4,7 +4,7 @@ import pygame
 from pygame.freetype import Font
 from pygame.math import Vector2
 
-from src import compass
+from src.sensors import compass
 from src.gui import boat, setpoint
 
 X_WINDOW_SIZE: Final[int] = 1000
