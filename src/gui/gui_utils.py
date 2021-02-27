@@ -36,6 +36,8 @@ RIGHT_MOUSE_BUTTON: Final[int] = 3
 
 EXTERNAL_FORCE_VECTOR: Final[Vector2] = Vector2(15, 0)
 
+is_feedback_loop_running: bool = False
+
 
 def init_app_window() -> None:
     global font
@@ -91,6 +93,17 @@ def handle_pressed_keys(pressed_keys: Sequence[bool], delta_time: float) -> None
         boat.turn_steering_wheel_right(delta_time)
     else:
         boat.apply_resistance_steering_wheel_rotate()
+
+    if pressed_keys[pygame.K_r]:
+        set_feedback_loop_status()
+
+
+def set_feedback_loop_status() -> None:
+    global is_feedback_loop_running
+    if setpoint.is_setpoint_exist():
+        is_feedback_loop_running = True
+    else:
+        is_feedback_loop_running = False
 
 
 def apply_external_force(delta_time: float) -> None:
