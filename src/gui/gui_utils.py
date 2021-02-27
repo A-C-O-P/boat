@@ -4,6 +4,7 @@ import pygame
 from pygame.freetype import Font
 from pygame.math import Vector2
 
+from src.pid import feedback_loop
 from src.sensors import compass
 from src.gui import boat, setpoint
 
@@ -73,7 +74,10 @@ def execute_run_loop() -> None:
             elif event.type == pygame.MOUSEBUTTONDOWN and event.button == RIGHT_MOUSE_BUTTON:
                 setpoint.set_coordinates(None, None)
 
-        apply_external_force(delta_time)
+        if is_feedback_loop_running:
+            feedback_loop.run_feedback_loop_iteration(setpoint.get_coordinates())
+
+        # apply_external_force(delta_time)
         boat.go_ahead(delta_time)
         redraw_display(display_surface)
         clock.tick_busy_loop(FPS)
@@ -177,8 +181,7 @@ def rotate_angle_coordinate(angle_location: Vector2, boat_center_location: Vecto
 
 
 def get_compass_data() -> float:
-    boat_x_direction_vector, boat_y_direction_vector = boat.get_direction_vector()
-    return round(compass.calc_deviation_from_north(boat_x_direction_vector, boat_y_direction_vector))
+    return round(compass.get_deviation_from_north())
 
 
 def draw_setpoint(display_surface: pygame.Surface) -> None:
