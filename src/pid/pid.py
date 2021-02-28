@@ -1,62 +1,82 @@
+import math
 import time
 from typing import Final
 
 UPDATE_INTERVAL_TIME: Final[float] = 0.01
 
-SPEED_PROPORTIONAL_GAIN: Final[float] = 1.2
-SPEED_INTEGRAL_GAIN: Final[float] = 1.0
-SPEED_DERIVATIVE_GAIN: Final[float] = 0.001
+VELOCITY_PROPORTIONAL_GAIN: Final[float] = 0.001
+VELOCITY_INTEGRAL_GAIN: Final[float] = 1.0
+VELOCITY_DERIVATIVE_GAIN: Final[float] = 0.001
 
 DEGREE_PROPORTIONAL_GAIN: Final[float] = 1.2
 DEGREE_INTEGRAL_GAIN: Final[float] = 1.0
 DEGREE_DERIVATIVE_GAIN: Final[float] = 0.001
 
+VELOCITY_WINDUP_GUARD: Final[float] = 95.0
+DEGREE_WINDUP_GUARD: Final[float] = 25.0
+
 """ Global variables """
-prev_time = time.time()
 prev_deviation_from_course = 0.0
 prev_distance_to_target = 0.0
 prev_output_value: tuple[float, float] = 0.0, 0.0
 
-speed_integral_term: list[float] = [0.0]
+velocity_integral_term: list[float] = [0.0]
 degree_integral_term: list[float] = [0.0]
 
+current_velocity_integral_gain: float = VELOCITY_INTEGRAL_GAIN
 
-def update_pid(deviation_from_course: float, distance_to_target: float) -> tuple[float, float]:
+
+def update_pid(delta_time: float, deviation_from_course: float, distance_to_target: float) -> tuple[float, float]:
     """
     Corrects the boat path
 
     deviation_from_course: float - deviation in degrees from the course
     distance_to_target: float - distance to boat target
-    pid() -> tuple[float, float] (engine speed, steering wheel degree)
+    pid() -> tuple[float, float] (boat velocity, steering wheel degree)
     """
-    global prev_time
     global prev_deviation_from_course
     global prev_distance_to_target
     global prev_output_value
 
-    global speed_integral_term
+    global velocity_integral_term
     global degree_integral_term
 
-    current_time = time.time()
+    global current_velocity_integral_gain
 
-    delta_time = current_time - prev_time
+    print(f"DISTANCE ERROR: {distance_to_target}")
+    print(f"DEVIATION ERROR: {deviation_from_course}")
+
     delta_deviation_from_course = deviation_from_course - prev_deviation_from_course
     delta_distance_to_target = distance_to_target - prev_distance_to_target
 
     if delta_time < UPDATE_INTERVAL_TIME:
         return prev_output_value
 
-    engine_speed = calculate_pid_output(
-        SPEED_PROPORTIONAL_GAIN,
-        SPEED_INTEGRAL_GAIN,
-        SPEED_DERIVATIVE_GAIN,
-        speed_integral_term,
+    boat_velocity = calculate_pid_output(
+        VELOCITY_PROPORTIONAL_GAIN,
+        current_velocity_integral_gain,
+        VELOCITY_DERIVATIVE_GAIN,
+        velocity_integral_term,
         delta_time,
         distance_to_target,
         delta_distance_to_target
     )
 
-    steering_wheel_degree = calculate_pid_output(
+    # integral windup: https://youtu.be/NVLXCwc8HzM?t=200
+    # TODO: pid doesn't work correctly (speed does not descrease near target)
+    if boat_velocity > VELOCITY_WINDUP_GUARD:
+        limited_boat_velocity = VELOCITY_WINDUP_GUARD
+    elif boat_velocity < -VELOCITY_WINDUP_GUARD:
+        limited_boat_velocity = -VELOCITY_WINDUP_GUARD
+    else:
+        limited_boat_velocity = boat_velocity
+
+    if not math.isclose(boat_velocity, limited_boat_velocity) and ((boat_velocity > 0) == (distance_to_target > 0)):
+        current_velocity_integral_gain = 0
+    else:
+        current_velocity_integral_gain = VELOCITY_INTEGRAL_GAIN
+
+    steering_wheel_angle = calculate_pid_output(
         DEGREE_PROPORTIONAL_GAIN,
         DEGREE_INTEGRAL_GAIN,
         DEGREE_DERIVATIVE_GAIN,
@@ -66,12 +86,11 @@ def update_pid(deviation_from_course: float, distance_to_target: float) -> tuple
         delta_deviation_from_course
     )
 
-    prev_time = current_time
     prev_deviation_from_course = deviation_from_course
     prev_distance_to_target = distance_to_target
-    prev_output_value = engine_speed, steering_wheel_degree
+    prev_output_value = limited_boat_velocity, steering_wheel_angle
 
-    return engine_speed, steering_wheel_degree
+    return limited_boat_velocity, steering_wheel_angle
 
 
 def calculate_pid_output(proportional_gain: float, integral_gain: float, derivative_gain: float,
@@ -79,6 +98,7 @@ def calculate_pid_output(proportional_gain: float, integral_gain: float, derivat
                          error: float, delta_error: float) -> float:
     proportional_term = proportional_gain * error
     integral_term[0] += error * delta_time
+
     derivative_term = derivative_gain * (delta_error / delta_time)
 
     return proportional_term + integral_gain * integral_term[0] + derivative_term

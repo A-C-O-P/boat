@@ -1,5 +1,6 @@
 import math
 
+from src.pid import pid
 from src.sensors import gps, compass
 
 x_setpoint: float
@@ -12,7 +13,7 @@ x_boat_center: float
 y_boat_center: float
 
 
-def run_feedback_loop_iteration(setpoint: tuple[float, float]) -> None:
+def run_iteration(setpoint: tuple[float, float], delta_time: float) -> tuple[float, float]:
     global x_setpoint, y_setpoint
     global x_boat_direction_vector, y_boat_direction_vector
     global x_boat_center, y_boat_center
@@ -21,8 +22,10 @@ def run_feedback_loop_iteration(setpoint: tuple[float, float]) -> None:
     x_boat_direction_vector, y_boat_direction_vector = compass.get_direction_vector()
     x_boat_center, y_boat_center = gps.get_boat_center_location()
 
-    print(calc_distance_to_target())
-    print(calc_deviation_from_course())
+    deviation_from_course = calc_deviation_from_course()
+    distance_to_target = calc_distance_to_target()
+
+    return pid.update_pid(delta_time, deviation_from_course, distance_to_target)
 
 
 def calc_distance_to_target() -> float:

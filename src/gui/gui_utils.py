@@ -75,7 +75,7 @@ def execute_run_loop() -> None:
                 setpoint.set_coordinates(None, None)
 
         if is_feedback_loop_running:
-            feedback_loop.run_feedback_loop_iteration(setpoint.get_coordinates())
+            handle_pid(delta_time)
 
         # apply_external_force(delta_time)
         boat.go_ahead(delta_time)
@@ -83,20 +83,43 @@ def execute_run_loop() -> None:
         clock.tick_busy_loop(FPS)
 
 
+def handle_pid(delta_time: float) -> None:
+    velocity_from_pid, steering_wheel_angle_from_pid = feedback_loop.run_iteration(
+        setpoint.get_coordinates(),
+        delta_time
+    )
+
+    print(f"speed: {velocity_from_pid}")
+    print(f"angle: {steering_wheel_angle_from_pid}\n")
+
+    boat_velocity = boat.get_current_velocity()
+    boat_steering_wheel_angle = boat.get_current_steering_wheel_angle()
+
+    if boat_velocity > velocity_from_pid:
+        boat.decrease_velocity(delta_time)
+    else:
+        boat.increase_velocity(delta_time)
+
+    if boat_steering_wheel_angle > steering_wheel_angle_from_pid:
+        boat.turn_steering_wheel_left(delta_time)
+    else:
+        boat.turn_steering_wheel_right(delta_time)
+
+
 def handle_pressed_keys(pressed_keys: Sequence[bool], delta_time: float) -> None:
     if pressed_keys[pygame.K_UP]:
         boat.increase_velocity(delta_time)
     elif pressed_keys[pygame.K_DOWN]:
         boat.decrease_velocity(delta_time)
-    else:
-        boat.apply_resistance_deceleration(delta_time)
+    # else:
+    #     boat.apply_resistance_deceleration(delta_time)
 
     if pressed_keys[pygame.K_LEFT]:
         boat.turn_steering_wheel_left(delta_time)
     elif pressed_keys[pygame.K_RIGHT]:
         boat.turn_steering_wheel_right(delta_time)
-    else:
-        boat.apply_resistance_steering_wheel_rotate()
+    #     else:
+    #         boat.apply_resistance_steering_wheel_rotate()
 
     if pressed_keys[pygame.K_r]:
         set_feedback_loop_status()
