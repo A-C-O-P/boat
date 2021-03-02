@@ -3,9 +3,9 @@ from typing import Final
 
 UPDATE_INTERVAL_TIME: Final[float] = 0.01
 
-VELOCITY_PROPORTIONAL_GAIN: Final[float] = 0.001
-VELOCITY_INTEGRAL_GAIN: Final[float] = 1.0
-VELOCITY_DERIVATIVE_GAIN: Final[float] = 0.001
+VELOCITY_PROPORTIONAL_GAIN: Final[float] = 0.5
+VELOCITY_INTEGRAL_GAIN: Final[float] = 0.0001
+VELOCITY_DERIVATIVE_GAIN: Final[float] = 0.2
 
 DEGREE_PROPORTIONAL_GAIN: Final[float] = 1.2
 DEGREE_INTEGRAL_GAIN: Final[float] = 1.0
