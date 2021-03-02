@@ -158,6 +158,7 @@ def get_angle() -> float:
 
 
 def get_current_velocity() -> float:
+
     return round(boat_velocity.y, 3)
 
 

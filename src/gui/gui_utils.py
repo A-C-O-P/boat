@@ -1,3 +1,5 @@
+import threading
+
 from typing import Final, Sequence, Union
 
 import pygame
@@ -42,6 +44,14 @@ EXTERNAL_FORCE_VECTOR: Final[Vector2] = Vector2(15, 0)
 is_feedback_loop_running: bool = False
 setpoint_rect: Union[Rect, None] = None
 
+velocity_from_pid: float = 0
+steering_wheel_angle_from_pid: float = 0
+
+handle_pid_lock = threading.Lock()
+
+is_pid_reaction_thread_running: bool = False
+pid_reaction_thread: Union[threading.Thread, None] = None
+
 
 def init_app_window() -> None:
     global font
@@ -72,6 +82,7 @@ def execute_run_loop() -> None:
             if event.type == pygame.QUIT:
                 return
             elif event.type == pygame.MOUSEBUTTONDOWN and event.button == LEFT_MOUSE_BUTTON:
+                remove_setpoint()
                 setpoint_x_coordinate, setpoint_y_coordinate = convert_coordinates(pygame.mouse.get_pos())
                 setpoint.set_coordinates(setpoint_x_coordinate, setpoint_y_coordinate)
             elif event.type == pygame.MOUSEBUTTONDOWN and event.button == RIGHT_MOUSE_BUTTON:
@@ -93,6 +104,10 @@ def execute_run_loop() -> None:
 
 
 def handle_pid(delta_time: float) -> None:
+    global velocity_from_pid, steering_wheel_angle_from_pid, is_pid_reaction_thread_running, pid_reaction_thread
+
+    handle_pid_lock.acquire()
+
     velocity_from_pid, steering_wheel_angle_from_pid = feedback_loop.run_iteration(
         setpoint.get_coordinates(),
         delta_time
@@ -100,24 +115,35 @@ def handle_pid(delta_time: float) -> None:
 
     print(f"speed from PID: {velocity_from_pid}")
     print(f"angle from PID: {steering_wheel_angle_from_pid}")
+    print(f"current boat velocity: {boat.get_current_velocity()}\n")
 
-    boat_velocity = boat.get_current_velocity()
-    boat_steering_wheel_angle = boat.get_current_steering_wheel_angle()
+    handle_pid_lock.release()
 
-    print(f"current boat velocity: {boat_velocity}\n")
+    if not is_pid_reaction_thread_running:
+        is_pid_reaction_thread_running = True
+        pid_reaction_thread = threading.Thread(target=react_to_pid_changes, args=(delta_time,), daemon=True)
+        pid_reaction_thread.start()
 
-    boat.boat_velocity = Vector2(0, velocity_from_pid)
-    # boat.boat_angle = steering_wheel_angle_from_pid
 
-    # if boat_velocity > velocity_from_pid:
-    #     boat.decrease_velocity(delta_time)
-    # else:
-    #     boat.increase_velocity(delta_time)
+def react_to_pid_changes(delta_time: float) -> None:
+    delta_time *= 5
 
-    if boat_steering_wheel_angle > steering_wheel_angle_from_pid:
-        boat.turn_steering_wheel_left(delta_time)
-    else:
-        boat.turn_steering_wheel_right(delta_time)
+    while is_pid_reaction_thread_running:
+        handle_pid_lock.acquire()
+
+        if boat.get_current_velocity() > velocity_from_pid:
+            boat.decrease_velocity(delta_time)
+
+        if boat.get_current_velocity() < velocity_from_pid:
+            boat.increase_velocity(delta_time)
+
+        if boat.get_current_steering_wheel_angle() > steering_wheel_angle_from_pid:
+            boat.turn_steering_wheel_left(delta_time)
+
+        if boat.get_current_steering_wheel_angle() < steering_wheel_angle_from_pid:
+            boat.turn_steering_wheel_right(delta_time)
+
+        handle_pid_lock.release()
 
 
 def handle_pressed_keys(pressed_keys: Sequence[bool], delta_time: float) -> None:
@@ -159,11 +185,13 @@ def remove_setpoint() -> None:
 
 
 def set_feedback_loop_status() -> None:
-    global is_feedback_loop_running
+    global is_feedback_loop_running, is_pid_reaction_thread_running
+
     if setpoint.is_setpoint_exist():
         is_feedback_loop_running = True
     else:
         is_feedback_loop_running = False
+        is_pid_reaction_thread_running = False
         pid.reset_pid()
 
 
