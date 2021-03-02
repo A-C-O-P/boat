@@ -1,10 +1,12 @@
-from typing import Final, Sequence
+from typing import Final, Sequence, Union
 
 import pygame
+from pygame.rect import Rect
 from pygame.freetype import Font
 from pygame.math import Vector2
 
 from src.pid import feedback_loop
+from src.pid import pid
 from src.sensors import compass
 from src.gui import boat, setpoint
 
@@ -38,6 +40,7 @@ RIGHT_MOUSE_BUTTON: Final[int] = 3
 EXTERNAL_FORCE_VECTOR: Final[Vector2] = Vector2(15, 0)
 
 is_feedback_loop_running: bool = False
+setpoint_rect: Union[Rect, None] = None
 
 
 def init_app_window() -> None:
@@ -72,13 +75,19 @@ def execute_run_loop() -> None:
                 setpoint_x_coordinate, setpoint_y_coordinate = convert_coordinates(pygame.mouse.get_pos())
                 setpoint.set_coordinates(setpoint_x_coordinate, setpoint_y_coordinate)
             elif event.type == pygame.MOUSEBUTTONDOWN and event.button == RIGHT_MOUSE_BUTTON:
-                setpoint.set_coordinates(None, None)
+                remove_setpoint()
 
         if is_feedback_loop_running:
             handle_pid(delta_time)
 
         # apply_external_force(delta_time)
         boat.go_ahead(delta_time)
+
+        center_location = boat.get_center_location()
+        location_coordinates = (center_location.x, center_location.y)
+        if setpoint_rect and setpoint_rect.collidepoint(convert_coordinates(location_coordinates)):
+            remove_setpoint()
+
         redraw_display(display_surface)
         clock.tick_busy_loop(FPS)
 
@@ -89,16 +98,21 @@ def handle_pid(delta_time: float) -> None:
         delta_time
     )
 
-    print(f"speed: {velocity_from_pid}")
-    print(f"angle: {steering_wheel_angle_from_pid}\n")
+    print(f"speed from PID: {velocity_from_pid}")
+    print(f"angle from PID: {steering_wheel_angle_from_pid}")
 
     boat_velocity = boat.get_current_velocity()
     boat_steering_wheel_angle = boat.get_current_steering_wheel_angle()
 
-    if boat_velocity > velocity_from_pid:
-        boat.decrease_velocity(delta_time)
-    else:
-        boat.increase_velocity(delta_time)
+    print(f"current boat velocity: {boat_velocity}\n")
+
+    boat.boat_velocity = Vector2(0, velocity_from_pid)
+    # boat.boat_angle = steering_wheel_angle_from_pid
+
+    # if boat_velocity > velocity_from_pid:
+    #     boat.decrease_velocity(delta_time)
+    # else:
+    #     boat.increase_velocity(delta_time)
 
     if boat_steering_wheel_angle > steering_wheel_angle_from_pid:
         boat.turn_steering_wheel_left(delta_time)
@@ -111,26 +125,18 @@ def handle_pressed_keys(pressed_keys: Sequence[bool], delta_time: float) -> None
         boat.increase_velocity(delta_time)
     elif pressed_keys[pygame.K_DOWN]:
         boat.decrease_velocity(delta_time)
-    # else:
-    #     boat.apply_resistance_deceleration(delta_time)
+    else:
+        boat.apply_resistance_deceleration(delta_time)
 
     if pressed_keys[pygame.K_LEFT]:
         boat.turn_steering_wheel_left(delta_time)
     elif pressed_keys[pygame.K_RIGHT]:
         boat.turn_steering_wheel_right(delta_time)
-    #     else:
-    #         boat.apply_resistance_steering_wheel_rotate()
+    else:
+        boat.apply_resistance_steering_wheel_rotate()
 
     if pressed_keys[pygame.K_r]:
         set_feedback_loop_status()
-
-
-def set_feedback_loop_status() -> None:
-    global is_feedback_loop_running
-    if setpoint.is_setpoint_exist():
-        is_feedback_loop_running = True
-    else:
-        is_feedback_loop_running = False
 
 
 def apply_external_force(delta_time: float) -> None:
@@ -142,6 +148,23 @@ def apply_external_force(delta_time: float) -> None:
         right_angle_location + external_force_location_delta,
         center_location + external_force_location_delta
     )
+
+
+def remove_setpoint() -> None:
+    global setpoint_rect
+
+    setpoint.set_coordinates(None, None)
+    set_feedback_loop_status()
+    setpoint_rect = None
+
+
+def set_feedback_loop_status() -> None:
+    global is_feedback_loop_running
+    if setpoint.is_setpoint_exist():
+        is_feedback_loop_running = True
+    else:
+        is_feedback_loop_running = False
+        pid.reset_pid()
 
 
 def redraw_display(display_surface: pygame.Surface) -> None:
@@ -208,12 +231,14 @@ def get_compass_data() -> float:
 
 
 def draw_setpoint(display_surface: pygame.Surface) -> None:
+    global setpoint_rect
+
     setpoint_coordinates = setpoint.get_coordinates()
 
     if not (setpoint_coordinates[0] is None and setpoint_coordinates[1] is None):
         setpoint_coordinates = convert_coordinates(setpoint_coordinates)
 
-        pygame.draw.circle(
+        setpoint_rect = pygame.draw.circle(
             display_surface,
             SETPOINT_COLOR,
             setpoint_coordinates,

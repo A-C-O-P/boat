@@ -1,5 +1,4 @@
 import math
-import time
 from typing import Final
 
 UPDATE_INTERVAL_TIME: Final[float] = 0.01
@@ -62,8 +61,9 @@ def update_pid(delta_time: float, deviation_from_course: float, distance_to_targ
         delta_distance_to_target
     )
 
+    print(f"BOAT VELOCITY before WINDUP GUARD: {boat_velocity}")
+
     # integral windup: https://youtu.be/NVLXCwc8HzM?t=200
-    # TODO: pid doesn't work correctly (speed does not descrease near target)
     if boat_velocity > VELOCITY_WINDUP_GUARD:
         limited_boat_velocity = VELOCITY_WINDUP_GUARD
     elif boat_velocity < -VELOCITY_WINDUP_GUARD:
@@ -102,3 +102,21 @@ def calculate_pid_output(proportional_gain: float, integral_gain: float, derivat
     derivative_term = derivative_gain * (delta_error / delta_time)
 
     return proportional_term + integral_gain * integral_term[0] + derivative_term
+
+
+def reset_pid() -> None:
+    global prev_deviation_from_course
+    global prev_distance_to_target
+    global prev_output_value
+    global velocity_integral_term
+    global degree_integral_term
+    global current_velocity_integral_gain
+
+    prev_deviation_from_course = 0.0
+    prev_distance_to_target = 0.0
+    prev_output_value = 0.0, 0.0
+
+    velocity_integral_term = [0.0]
+    degree_integral_term = [0.0]
+
+    current_velocity_integral_gain = VELOCITY_INTEGRAL_GAIN
