@@ -20,10 +20,11 @@ WINDOW_CAPTION: Final[str] = "Boat"
 
 FONT_SIZE: Final[int] = 20
 FONT_COLOR: Final[pygame.Color] = pygame.Color(0, 0, 0)
-BOAT_VELOCITY_DISPLAY_COORDINATES: tuple[int, int] = (10, 600)
-STEERING_WHEEL_ANGLE_DISPLAY_COORDINATES: tuple[int, int] = (10, 650)
-COMPASS_DATA_DISPLAY_COORDINATES: tuple[int, int] = (10, 700)
-CONTROL_MODE_DISPLAY_COORDINATES: tuple[int, int] = (10, 750)
+BOAT_VELOCITY_DISPLAY_COORDINATES: tuple[int, int] = (10, 550)
+STEERING_WHEEL_ANGLE_DISPLAY_COORDINATES: tuple[int, int] = (10, 600)
+COMPASS_DATA_DISPLAY_COORDINATES: tuple[int, int] = (10, 650)
+CONTROL_MODE_DISPLAY_COORDINATES: tuple[int, int] = (10, 700)
+EXTERNAL_FORCE_DISPLAY_COORDINATES: tuple[int, int] = (10, 750)
 font: Font
 
 FIRST_ARROW_DISPLAY_COORDINATES: tuple[int, int] = (950, 700)
@@ -39,7 +40,9 @@ BOAT_COLOR: Final[pygame.Color] = pygame.Color(34, 139, 34)
 BOAT_CIRCLE_RADIUS: Final[int] = 20
 
 SETPOINT_COLOR: Final[pygame.Color] = pygame.Color(255, 0, 0)
+SETPOINT_COLLISION_COLOR: Final[pygame.Color] = pygame.Color(135, 178, 248)
 SETPOINT_CIRCLE_RADIUS: Final[int] = 5
+SETPOINT_COLLISION_RADIUS: Final[int] = 30
 
 LEFT_MOUSE_BUTTON: Final[int] = 1
 RIGHT_MOUSE_BUTTON: Final[int] = 3
@@ -68,6 +71,8 @@ up_arrow_image: pygame.Surface
 down_arrow_image: pygame.Surface
 left_arrow_image: pygame.Surface
 right_arrow_image: pygame.Surface
+
+is_external_force_enabled: bool = False
 
 
 def init_app_window() -> None:
@@ -122,7 +127,9 @@ def execute_run_loop() -> None:
         if is_feedback_loop_running:
             handle_pid(delta_time)
 
-        apply_external_force(delta_time)
+        if is_external_force_enabled:
+            apply_external_force(delta_time)
+
         boat.go_ahead(delta_time)
 
         center_location = boat.get_center_location()
@@ -196,7 +203,7 @@ def react_to_pid_changes(delta_time: float) -> None:
 
 
 def handle_pressed_keys(pressed_keys: Sequence[bool], delta_time: float) -> None:
-    global is_auto_mode
+    global is_auto_mode, is_external_force_enabled
 
     if pressed_keys[pygame.K_UP]:
         boat.increase_velocity(delta_time)
@@ -219,6 +226,11 @@ def handle_pressed_keys(pressed_keys: Sequence[bool], delta_time: float) -> None
         is_auto_mode = False
     if pressed_keys[pygame.K_x]:
         is_auto_mode = True
+
+    if pressed_keys[pygame.K_e]:
+        is_external_force_enabled = True
+    if pressed_keys[pygame.K_d]:
+        is_external_force_enabled = False
 
 
 def apply_external_force(delta_time: float) -> None:
@@ -254,25 +266,15 @@ def set_feedback_loop_status() -> None:
 def redraw_display(display_surface: pygame.Surface) -> None:
     display_surface.fill(BACKGROUND_COLOR)
 
-    top_angle_location, left_angle_location, right_angle_location, _ = boat.get_current_coordinates()
+    draw_text_data(display_surface)
+    draw_setpoint(display_surface)
+    draw_arrows(display_surface)
+    draw_boat(display_surface)
 
-    boat_center_location = boat.get_center_location()
-    boat_angle = convert_angle(boat.get_angle())
+    pygame.display.flip()
 
-    top_angle_location = rotate_angle_coordinate(top_angle_location, boat_center_location, boat_angle)
-    left_angle_location = rotate_angle_coordinate(left_angle_location, boat_center_location, boat_angle)
-    right_angle_location = rotate_angle_coordinate(right_angle_location, boat_center_location, boat_angle)
 
-    top_angle_location = convert_coordinates((top_angle_location.x, top_angle_location.y))
-    left_angle_location = convert_coordinates((left_angle_location.x, left_angle_location.y))
-    right_angle_location = convert_coordinates((right_angle_location.x, right_angle_location.y))
-
-    pygame.draw.polygon(
-        display_surface,
-        BOAT_COLOR,
-        [top_angle_location, left_angle_location, right_angle_location]
-    )
-
+def draw_text_data(display_surface: pygame.Surface) -> None:
     font.render_to(
         display_surface,
         BOAT_VELOCITY_DISPLAY_COORDINATES,
@@ -306,21 +308,12 @@ def redraw_display(display_surface: pygame.Surface) -> None:
         FONT_COLOR
     )
 
-    draw_setpoint(display_surface)
-    draw_arrows(display_surface)
-
-    pygame.display.flip()
-
-
-def convert_angle(angle: float) -> float:
-    return -angle
-
-
-def rotate_angle_coordinate(angle_location: Vector2, boat_center_location: Vector2, boat_angle: float) -> Vector2:
-    reduced_angle_location = angle_location - boat_center_location
-    reduced_angle_location.rotate_ip_rad(boat_angle)
-
-    return reduced_angle_location + boat_center_location
+    font.render_to(
+        display_surface,
+        EXTERNAL_FORCE_DISPLAY_COORDINATES,
+        f"Is external force enabled: {is_external_force_enabled}",
+        FONT_COLOR
+    )
 
 
 def get_compass_data() -> float:
@@ -336,6 +329,13 @@ def draw_setpoint(display_surface: pygame.Surface) -> None:
         setpoint_coordinates = convert_coordinates(setpoint_coordinates)
 
         setpoint_rect = pygame.draw.circle(
+            display_surface,
+            SETPOINT_COLLISION_COLOR,
+            setpoint_coordinates,
+            SETPOINT_COLLISION_RADIUS
+        )
+
+        pygame.draw.circle(
             display_surface,
             SETPOINT_COLOR,
             setpoint_coordinates,
@@ -363,6 +363,38 @@ def draw_arrows(display_surface: pygame.Surface) -> None:
 
         if second_arrow_image:
             display_surface.blit(second_arrow_image, SECOND_ARROW_DISPLAY_COORDINATES)
+
+
+def draw_boat(display_surface: pygame.Surface) -> None:
+    top_angle_location, left_angle_location, right_angle_location, _ = boat.get_current_coordinates()
+
+    boat_center_location = boat.get_center_location()
+    boat_angle = convert_angle(boat.get_angle())
+
+    top_angle_location = rotate_angle_coordinate(top_angle_location, boat_center_location, boat_angle)
+    left_angle_location = rotate_angle_coordinate(left_angle_location, boat_center_location, boat_angle)
+    right_angle_location = rotate_angle_coordinate(right_angle_location, boat_center_location, boat_angle)
+
+    top_angle_location = convert_coordinates((top_angle_location.x, top_angle_location.y))
+    left_angle_location = convert_coordinates((left_angle_location.x, left_angle_location.y))
+    right_angle_location = convert_coordinates((right_angle_location.x, right_angle_location.y))
+
+    pygame.draw.polygon(
+        display_surface,
+        BOAT_COLOR,
+        [top_angle_location, left_angle_location, right_angle_location]
+    )
+
+
+def convert_angle(angle: float) -> float:
+    return -angle
+
+
+def rotate_angle_coordinate(angle_location: Vector2, boat_center_location: Vector2, boat_angle: float) -> Vector2:
+    reduced_angle_location = angle_location - boat_center_location
+    reduced_angle_location.rotate_ip_rad(boat_angle)
+
+    return reduced_angle_location + boat_center_location
 
 
 def convert_coordinates(coordinates: tuple[float, float]) -> tuple[float, float]:
