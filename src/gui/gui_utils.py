@@ -1,3 +1,4 @@
+import os
 import threading
 
 from typing import Final, Sequence, Union
@@ -19,10 +20,14 @@ WINDOW_CAPTION: Final[str] = "Boat"
 
 FONT_SIZE: Final[int] = 20
 FONT_COLOR: Final[pygame.Color] = pygame.Color(0, 0, 0)
-BOAT_VELOCITY_DISPLAY_COORDINATES: tuple[int, int] = (10, 650)
-STEERING_WHEEL_ANGLE_DISPLAY_COORDINATES: tuple[int, int] = (10, 700)
-COMPASS_DATA_DISPLAY_COORDINATES: tuple[int, int] = (10, 750)
+BOAT_VELOCITY_DISPLAY_COORDINATES: tuple[int, int] = (10, 600)
+STEERING_WHEEL_ANGLE_DISPLAY_COORDINATES: tuple[int, int] = (10, 650)
+COMPASS_DATA_DISPLAY_COORDINATES: tuple[int, int] = (10, 700)
+CONTROL_MODE_DISPLAY_COORDINATES: tuple[int, int] = (10, 750)
 font: Font
+
+FIRST_ARROW_DISPLAY_COORDINATES: tuple[int, int] = (950, 700)
+SECOND_ARROW_DISPLAY_COORDINATES: tuple[int, int] = (950, 750)
 
 INITIAL_TOP_ANGLE_LOCATION: Final[Vector2] = Vector2(X_WINDOW_SIZE // 2, 50)
 INITIAL_LEFT_ANGLE_LOCATION: Final[Vector2] = Vector2(X_WINDOW_SIZE // 2 - 20, 0)
@@ -39,7 +44,7 @@ SETPOINT_CIRCLE_RADIUS: Final[int] = 5
 LEFT_MOUSE_BUTTON: Final[int] = 1
 RIGHT_MOUSE_BUTTON: Final[int] = 3
 
-EXTERNAL_FORCE_VECTOR: Final[Vector2] = Vector2(15, 0)
+EXTERNAL_FORCE_VECTOR: Final[Vector2] = Vector2(5, 0)
 
 is_feedback_loop_running: bool = False
 setpoint_rect: Union[Rect, None] = None
@@ -52,9 +57,21 @@ handle_pid_lock = threading.Lock()
 is_pid_reaction_thread_running: bool = False
 pid_reaction_thread: Union[threading.Thread, None] = None
 
+is_auto_mode: bool = False
+
+is_show_up_arrow: bool = False
+is_show_down_arrow: bool = False
+is_show_left_arrow: bool = False
+is_show_right_arrow: bool = False
+
+up_arrow_image: pygame.Surface
+down_arrow_image: pygame.Surface
+left_arrow_image: pygame.Surface
+right_arrow_image: pygame.Surface
+
 
 def init_app_window() -> None:
-    global font
+    global font, up_arrow_image, down_arrow_image, left_arrow_image, right_arrow_image
 
     window_size = [X_WINDOW_SIZE, Y_WINDOW_SIZE]
     app_window = pygame.display.set_mode(window_size)
@@ -62,6 +79,20 @@ def init_app_window() -> None:
     pygame.display.set_caption(WINDOW_CAPTION)
 
     font = pygame.freetype.SysFont(pygame.freetype.get_default_font(), FONT_SIZE)
+
+    resources_dir = os.path.join(os.path.dirname(os.path.abspath(__file__)), "resources")
+
+    up_arrow_path = os.path.join(resources_dir, "up_arrow.png")
+    up_arrow_image = pygame.image.load(up_arrow_path)
+
+    down_arrow_path = os.path.join(resources_dir, "down_arrow.png")
+    down_arrow_image = pygame.image.load(down_arrow_path)
+
+    left_arrow_path = os.path.join(resources_dir, "left_arrow.png")
+    left_arrow_image = pygame.image.load(left_arrow_path)
+
+    right_arrow_path = os.path.join(resources_dir, "right_arrow.png")
+    right_arrow_image = pygame.image.load(right_arrow_path)
 
 
 def execute_run_loop() -> None:
@@ -91,7 +122,7 @@ def execute_run_loop() -> None:
         if is_feedback_loop_running:
             handle_pid(delta_time)
 
-        # apply_external_force(delta_time)
+        apply_external_force(delta_time)
         boat.go_ahead(delta_time)
 
         center_location = boat.get_center_location()
@@ -126,27 +157,47 @@ def handle_pid(delta_time: float) -> None:
 
 
 def react_to_pid_changes(delta_time: float) -> None:
-    delta_time *= 5
+    global is_show_up_arrow, is_show_down_arrow, is_show_left_arrow, is_show_right_arrow
+
+    delta_time *= 3
 
     while is_pid_reaction_thread_running:
         handle_pid_lock.acquire()
 
         if boat.get_current_velocity() > velocity_from_pid:
-            boat.decrease_velocity(delta_time)
+            if is_auto_mode:
+                boat.decrease_velocity(delta_time)
+            else:
+                is_show_up_arrow = False
+                is_show_down_arrow = True
 
         if boat.get_current_velocity() < velocity_from_pid:
-            boat.increase_velocity(delta_time)
+            if is_auto_mode:
+                boat.increase_velocity(delta_time)
+            else:
+                is_show_down_arrow = False
+                is_show_up_arrow = True
 
         if boat.get_current_steering_wheel_angle() > steering_wheel_angle_from_pid:
-            boat.turn_steering_wheel_left(delta_time)
+            if is_auto_mode:
+                boat.turn_steering_wheel_left(delta_time)
+            else:
+                is_show_right_arrow = False
+                is_show_left_arrow = True
 
         if boat.get_current_steering_wheel_angle() < steering_wheel_angle_from_pid:
-            boat.turn_steering_wheel_right(delta_time)
+            if is_auto_mode:
+                boat.turn_steering_wheel_right(delta_time)
+            else:
+                is_show_left_arrow = False
+                is_show_right_arrow = True
 
         handle_pid_lock.release()
 
 
 def handle_pressed_keys(pressed_keys: Sequence[bool], delta_time: float) -> None:
+    global is_auto_mode
+
     if pressed_keys[pygame.K_UP]:
         boat.increase_velocity(delta_time)
     elif pressed_keys[pygame.K_DOWN]:
@@ -163,6 +214,11 @@ def handle_pressed_keys(pressed_keys: Sequence[bool], delta_time: float) -> None
 
     if pressed_keys[pygame.K_r]:
         set_feedback_loop_status()
+
+    if pressed_keys[pygame.K_z]:
+        is_auto_mode = False
+    if pressed_keys[pygame.K_x]:
+        is_auto_mode = True
 
 
 def apply_external_force(delta_time: float) -> None:
@@ -238,7 +294,20 @@ def redraw_display(display_surface: pygame.Surface) -> None:
         FONT_COLOR
     )
 
+    if is_auto_mode:
+        control_mode = "auto"
+    else:
+        control_mode = "manual"
+
+    font.render_to(
+        display_surface,
+        CONTROL_MODE_DISPLAY_COORDINATES,
+        f"Control mode: {control_mode}",
+        FONT_COLOR
+    )
+
     draw_setpoint(display_surface)
+    draw_arrows(display_surface)
 
     pygame.display.flip()
 
@@ -272,6 +341,28 @@ def draw_setpoint(display_surface: pygame.Surface) -> None:
             setpoint_coordinates,
             SETPOINT_CIRCLE_RADIUS
         )
+
+
+def draw_arrows(display_surface: pygame.Surface) -> None:
+    first_arrow_image = None
+    second_arrow_image = None
+
+    if not is_auto_mode:
+        if is_show_up_arrow:
+            first_arrow_image = up_arrow_image
+        elif is_show_down_arrow:
+            first_arrow_image = down_arrow_image
+
+        if is_show_left_arrow:
+            second_arrow_image = left_arrow_image
+        elif is_show_right_arrow:
+            second_arrow_image = right_arrow_image
+
+        if first_arrow_image:
+            display_surface.blit(first_arrow_image, FIRST_ARROW_DISPLAY_COORDINATES)
+
+        if second_arrow_image:
+            display_surface.blit(second_arrow_image, SECOND_ARROW_DISPLAY_COORDINATES)
 
 
 def convert_coordinates(coordinates: tuple[float, float]) -> tuple[float, float]:
