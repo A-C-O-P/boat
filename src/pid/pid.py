@@ -11,8 +11,10 @@ DEGREE_PROPORTIONAL_GAIN: Final[float] = 1.8
 DEGREE_INTEGRAL_GAIN: Final[float] = 0.003
 DEGREE_DERIVATIVE_GAIN: Final[float] = 1.20
 
-VELOCITY_WINDUP_GUARD: Final[float] = 95.0
-DEGREE_WINDUP_GUARD: Final[float] = 25.0
+MAX_VELOCITY_VALUE: Final[float] = 95.0
+MAX_ANGLE_VALUE: Final[float] = 25.0
+
+WINDUP_GUARD: Final[float] = 1
 
 """ Global variables """
 prev_deviation_from_course = 0.0
@@ -22,8 +24,8 @@ prev_output_value: tuple[float, float] = 0.0, 0.0
 velocity_integral_term: list[float] = [0.0]
 degree_integral_term: list[float] = [0.0]
 
-current_velocity_integral_gain: float = VELOCITY_INTEGRAL_GAIN
-current_degree_integral_gain: float = DEGREE_INTEGRAL_GAIN
+current_velocity_integral_gain: list[float] = [VELOCITY_INTEGRAL_GAIN]
+current_degree_integral_gain: list[float] = [DEGREE_INTEGRAL_GAIN]
 
 
 def update_pid(delta_time: float, deviation_from_course: float, distance_to_target: float) -> tuple[float, float]:
@@ -34,89 +36,105 @@ def update_pid(delta_time: float, deviation_from_course: float, distance_to_targ
     distance_to_target: float - distance to boat target
     pid() -> tuple[float, float] (boat velocity, steering wheel degree)
     """
-    global prev_deviation_from_course
     global prev_distance_to_target
+    global prev_deviation_from_course
     global prev_output_value
-
-    global velocity_integral_term
-    global degree_integral_term
-
-    global current_velocity_integral_gain
-    global current_degree_integral_gain
 
     print(f"DISTANCE ERROR: {distance_to_target}")
     print(f"DEVIATION ERROR: {deviation_from_course}")
 
-    delta_deviation_from_course = deviation_from_course - prev_deviation_from_course
     delta_distance_to_target = distance_to_target - prev_distance_to_target
+    delta_deviation_from_course = deviation_from_course - prev_deviation_from_course
 
     if delta_time < UPDATE_INTERVAL_TIME:
         return prev_output_value
 
-    boat_velocity = calculate_pid_output(
+    output_boat_velocity = calculate_normalized_pid_output(
         VELOCITY_PROPORTIONAL_GAIN,
         current_velocity_integral_gain,
         VELOCITY_DERIVATIVE_GAIN,
         velocity_integral_term,
         delta_time,
         distance_to_target,
-        delta_distance_to_target
+        delta_distance_to_target,
+        MAX_VELOCITY_VALUE,
+        VELOCITY_INTEGRAL_GAIN
     )
 
-    print(f"BOAT VELOCITY before WINDUP GUARD: {boat_velocity}")
-
-    limited_boat_velocity = apply_windup_guard(boat_velocity, VELOCITY_WINDUP_GUARD)
-
-    if not math.isclose(boat_velocity, limited_boat_velocity) \
-            and ((boat_velocity > 0) == (distance_to_target > 0)):
-        current_velocity_integral_gain = 0
-    else:
-        current_velocity_integral_gain = VELOCITY_INTEGRAL_GAIN
-
-    steering_wheel_angle = calculate_pid_output(
+    output_steering_wheel_angle = calculate_normalized_pid_output(
         DEGREE_PROPORTIONAL_GAIN,
-        DEGREE_INTEGRAL_GAIN,
+        current_degree_integral_gain,
         DEGREE_DERIVATIVE_GAIN,
         degree_integral_term,
         delta_time,
         deviation_from_course,
-        delta_deviation_from_course
+        delta_deviation_from_course,
+        MAX_ANGLE_VALUE,
+        DEGREE_INTEGRAL_GAIN
     )
 
-    limited_steering_wheel_angle = apply_windup_guard(steering_wheel_angle, DEGREE_WINDUP_GUARD)
+    print(
+        f"PID output:"
+        f"\n\tVelocity: {output_boat_velocity}"
+        f"\n\tAngle: {output_steering_wheel_angle}"
+    )
+    output_value = output_boat_velocity, output_steering_wheel_angle
 
-    if not math.isclose(steering_wheel_angle, limited_steering_wheel_angle) \
-            and ((steering_wheel_angle > 0) == (deviation_from_course > 0)):
-        current_degree_integral_gain = 0
-    else:
-        current_degree_integral_gain = DEGREE_INTEGRAL_GAIN
-
-    prev_deviation_from_course = deviation_from_course
     prev_distance_to_target = distance_to_target
-    prev_output_value = limited_boat_velocity, steering_wheel_angle
+    prev_deviation_from_course = deviation_from_course
+    prev_output_value = output_value
 
-    return limited_boat_velocity, limited_steering_wheel_angle
+    return output_value
+
+
+def calculate_normalized_pid_output(proportional_gain: float, integral_gain: list[float], derivative_gain: float,
+                                    integral_term: list[float], delta_time: float, error: float, delta_error: float,
+                                    max_value: float, integral_gain_constant: float) -> float:
+    pid_output = calculate_pid_output(
+        proportional_gain,
+        integral_gain[0],
+        derivative_gain,
+        integral_term,
+        delta_time,
+        error,
+        delta_error,
+        max_value
+    )
+
+    limited_pid_output = apply_windup_guard(pid_output)
+
+    if not math.isclose(pid_output, limited_pid_output) and ((pid_output > 0) == (error > 0)):
+        integral_gain[0] = 0
+    else:
+        integral_gain[0] = integral_gain_constant
+
+    return limited_pid_output
 
 
 def calculate_pid_output(proportional_gain: float, integral_gain: float, derivative_gain: float,
                          integral_term: list[float], delta_time: float,
-                         error: float, delta_error: float) -> float:
+                         error: float, delta_error: float, max_value: float) -> float:
     proportional_term = proportional_gain * error
     integral_term[0] += error * delta_time
-
     derivative_term = derivative_gain * (delta_error / delta_time)
 
-    return proportional_term + integral_gain * integral_term[0] + derivative_term
+    pid_output = proportional_term + integral_gain * integral_term[0] + derivative_term
+
+    return normalize_pid_output(pid_output, max_value)
+
+
+def normalize_pid_output(pid_output: float, max_value: float) -> float:
+    return pid_output / max_value
 
 
 # Integral windup: https://youtu.be/NVLXCwc8HzM?t=200
-def apply_windup_guard(calculated_value: float, windup_guard_value: float) -> float:
-    if calculated_value > windup_guard_value:
-        return windup_guard_value
-    elif calculated_value < -windup_guard_value:
-        return -windup_guard_value
+def apply_windup_guard(pid_output: float) -> float:
+    if pid_output > WINDUP_GUARD:
+        return WINDUP_GUARD
+    elif pid_output < -WINDUP_GUARD:
+        return -WINDUP_GUARD
     else:
-        return calculated_value
+        return pid_output
 
 
 def reset_pid() -> None:
@@ -134,4 +152,4 @@ def reset_pid() -> None:
     velocity_integral_term = [0.0]
     degree_integral_term = [0.0]
 
-    current_velocity_integral_gain = VELOCITY_INTEGRAL_GAIN
+    current_velocity_integral_gain = [VELOCITY_INTEGRAL_GAIN]
