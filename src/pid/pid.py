@@ -103,7 +103,7 @@ def calculate_pid_output(proportional_gain: float, integral_gain: list[float], d
 
     limited_pid_output = apply_windup_guard(pid_output)
 
-    if not math.isclose(pid_output, limited_pid_output) and ((pid_output > 0) == (error > 0)):
+    if not math.isclose(pid_output, limited_pid_output) and pid_output > 0 and error > 0:
         integral_gain[0] = 0
     else:
         integral_gain[0] = integral_gain_constant
