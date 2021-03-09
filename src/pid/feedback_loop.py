@@ -28,13 +28,6 @@ def run_iteration(setpoint: tuple[float, float], delta_time: float) -> tuple[flo
     return pid.update_pid(delta_time, deviation_from_course, distance_to_target)
 
 
-def calc_distance_to_target() -> float:
-    return math.sqrt(
-        math.pow(x_setpoint - x_boat_center, 2)
-        + math.pow(y_setpoint - y_boat_center, 2)
-    )
-
-
 def calc_deviation_from_course() -> float:
     x_setpoint_direction_vector, y_setpoint_direction_vector = get_setpoint_direction_vector()
 
@@ -75,3 +68,32 @@ def calc_angle_between_vectors(x_first_vector: float, y_first_vector: float,
         angles_diff = 2 * -math.pi + abs(angles_diff)
 
     return -angles_diff
+
+
+def calc_distance_to_target() -> float:
+    distance = math.sqrt(
+        math.pow(x_setpoint - x_boat_center, 2)
+        + math.pow(y_setpoint - y_boat_center, 2)
+    )
+
+    if is_setpoint_behind_boat():
+        distance = -distance
+
+    return distance
+
+
+def is_setpoint_behind_boat() -> bool:
+    x_between_setpoint_and_boat = x_setpoint - x_boat_center
+    y_between_setpoint_and_boat = y_setpoint - y_boat_center
+
+    dot_product = calc_dot_product_of_vectors(
+        x_boat_direction_vector, x_between_setpoint_and_boat,
+        y_boat_direction_vector, y_between_setpoint_and_boat
+    )
+
+    return dot_product < 0
+
+
+def calc_dot_product_of_vectors(x_first_vector: float, x_second_vector: float,
+                                y_first_vector: float, y_second_vector: float) -> float:
+    return (x_first_vector * x_second_vector) + (y_first_vector * y_second_vector)
