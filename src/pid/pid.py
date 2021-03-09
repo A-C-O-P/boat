@@ -49,7 +49,7 @@ def update_pid(delta_time: float, deviation_from_course: float, distance_to_targ
     if delta_time < UPDATE_INTERVAL_TIME:
         return prev_output_value
 
-    output_boat_velocity = calculate_normalized_pid_output(
+    output_boat_velocity = calculate_pid_output(
         VELOCITY_PROPORTIONAL_GAIN,
         current_velocity_integral_gain,
         VELOCITY_DERIVATIVE_GAIN,
@@ -61,7 +61,7 @@ def update_pid(delta_time: float, deviation_from_course: float, distance_to_targ
         VELOCITY_INTEGRAL_GAIN
     )
 
-    output_steering_wheel_angle = calculate_normalized_pid_output(
+    output_steering_wheel_angle = calculate_pid_output(
         DEGREE_PROPORTIONAL_GAIN,
         current_degree_integral_gain,
         DEGREE_DERIVATIVE_GAIN,
@@ -87,10 +87,10 @@ def update_pid(delta_time: float, deviation_from_course: float, distance_to_targ
     return output_value
 
 
-def calculate_normalized_pid_output(proportional_gain: float, integral_gain: list[float], derivative_gain: float,
-                                    integral_term: list[float], delta_time: float, error: float, delta_error: float,
-                                    max_value: float, integral_gain_constant: float) -> float:
-    pid_output = calculate_pid_output(
+def calculate_pid_output(proportional_gain: float, integral_gain: list[float], derivative_gain: float,
+                         integral_term: list[float], delta_time: float, error: float, delta_error: float,
+                         max_value: float, integral_gain_constant: float) -> float:
+    pid_output = calculate_normalized_pid_output(
         proportional_gain,
         integral_gain[0],
         derivative_gain,
@@ -111,9 +111,9 @@ def calculate_normalized_pid_output(proportional_gain: float, integral_gain: lis
     return limited_pid_output
 
 
-def calculate_pid_output(proportional_gain: float, integral_gain: float, derivative_gain: float,
-                         integral_term: list[float], delta_time: float,
-                         error: float, delta_error: float, max_value: float) -> float:
+def calculate_normalized_pid_output(proportional_gain: float, integral_gain: float, derivative_gain: float,
+                                    integral_term: list[float], delta_time: float,
+                                    error: float, delta_error: float, max_value: float) -> float:
     proportional_term = proportional_gain * error
     integral_term[0] += error * delta_time
     derivative_term = derivative_gain * (delta_error / delta_time)
