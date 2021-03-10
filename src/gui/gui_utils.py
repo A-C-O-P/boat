@@ -146,9 +146,18 @@ def handle_pid(delta_time: float) -> None:
 
     handle_pid_lock.acquire()
 
-    velocity_from_pid, steering_wheel_angle_from_pid = feedback_loop.run_iteration(
+    normalized_velocity_from_pid, normalized_steering_wheel_angle_from_pid = feedback_loop.run_iteration(
         setpoint.get_coordinates(),
         delta_time
+    )
+
+    velocity_from_pid = denormalize_pid_output(
+        normalized_velocity_from_pid,
+        pid.MAX_VELOCITY_VALUE
+    )
+    steering_wheel_angle_from_pid = denormalize_pid_output(
+        normalized_steering_wheel_angle_from_pid,
+        pid.MAX_ANGLE_VALUE
     )
 
     print(f"speed from PID: {velocity_from_pid}")
@@ -161,6 +170,10 @@ def handle_pid(delta_time: float) -> None:
         is_pid_reaction_thread_running = True
         pid_reaction_thread = threading.Thread(target=react_to_pid_changes, args=(delta_time,), daemon=True)
         pid_reaction_thread.start()
+
+
+def denormalize_pid_output(pid_output: float, max_value: float) -> float:
+    return pid_output * max_value
 
 
 def react_to_pid_changes(delta_time: float) -> None:
