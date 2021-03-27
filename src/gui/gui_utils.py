@@ -1,17 +1,16 @@
 import os
 import threading
-
 from typing import Final, Sequence, Union
 
 import pygame
-from pygame.rect import Rect
 from pygame.freetype import Font
 from pygame.math import Vector2
+from pygame.rect import Rect
 
-from src.pid import feedback_loop
-from src.pid import pid
-from src.sensors import compass
 from src.gui import boat, setpoint
+from src.pid import feedback_loop, pid
+from src.sensors import compass
+from src.utils import converter_utils
 
 X_WINDOW_SIZE: Final[int] = 1000
 Y_WINDOW_SIZE: Final[int] = 800
@@ -119,7 +118,10 @@ def execute_run_loop() -> None:
                 return
             elif event.type == pygame.MOUSEBUTTONDOWN and event.button == LEFT_MOUSE_BUTTON:
                 remove_setpoint()
-                setpoint_x_coordinate, setpoint_y_coordinate = convert_coordinates(pygame.mouse.get_pos())
+                setpoint_x_coordinate, setpoint_y_coordinate = converter_utils.convert_coordinates(
+                    pygame.mouse.get_pos(), Y_WINDOW_SIZE
+                )
+
                 setpoint.set_coordinates(setpoint_x_coordinate, setpoint_y_coordinate)
             elif event.type == pygame.MOUSEBUTTONDOWN and event.button == RIGHT_MOUSE_BUTTON:
                 remove_setpoint()
@@ -134,11 +136,18 @@ def execute_run_loop() -> None:
 
         center_location = boat.get_center_location()
         location_coordinates = (center_location.x, center_location.y)
-        if setpoint_rect and setpoint_rect.collidepoint(convert_coordinates(location_coordinates)):
+
+        if setpoint_rect and is_boat_collide_setpoint(setpoint_rect, location_coordinates):
             remove_setpoint()
 
         redraw_display(display_surface)
         clock.tick_busy_loop(FPS)
+
+
+def is_boat_collide_setpoint(setpoint_rectangle: Rect, location_coordinates: tuple[float, float]) -> boat:
+    return setpoint_rectangle.collidepoint(
+        converter_utils.convert_coordinates(location_coordinates, Y_WINDOW_SIZE)
+    )
 
 
 def handle_pid(delta_time: float) -> None:
@@ -340,7 +349,7 @@ def draw_setpoint(display_surface: pygame.Surface) -> None:
     setpoint_coordinates = setpoint.get_coordinates()
 
     if not (setpoint_coordinates[0] is None and setpoint_coordinates[1] is None):
-        setpoint_coordinates = convert_coordinates(setpoint_coordinates)
+        setpoint_coordinates = converter_utils.convert_coordinates(setpoint_coordinates, Y_WINDOW_SIZE)
 
         setpoint_rect = pygame.draw.circle(
             display_surface,
@@ -383,15 +392,24 @@ def draw_boat(display_surface: pygame.Surface) -> None:
     top_angle_location, left_angle_location, right_angle_location, _ = boat.get_current_coordinates()
 
     boat_center_location = boat.get_center_location()
-    boat_angle = convert_angle(boat.get_angle())
+    boat_angle = converter_utils.convert_angle(boat.get_angle())
 
     top_angle_location = rotate_angle_coordinate(top_angle_location, boat_center_location, boat_angle)
     left_angle_location = rotate_angle_coordinate(left_angle_location, boat_center_location, boat_angle)
     right_angle_location = rotate_angle_coordinate(right_angle_location, boat_center_location, boat_angle)
 
-    top_angle_location = convert_coordinates((top_angle_location.x, top_angle_location.y))
-    left_angle_location = convert_coordinates((left_angle_location.x, left_angle_location.y))
-    right_angle_location = convert_coordinates((right_angle_location.x, right_angle_location.y))
+    top_angle_location = converter_utils.convert_coordinates(
+        (top_angle_location.x, top_angle_location.y),
+        Y_WINDOW_SIZE
+    )
+    left_angle_location = converter_utils.convert_coordinates(
+        (left_angle_location.x, left_angle_location.y),
+        Y_WINDOW_SIZE
+    )
+    right_angle_location = converter_utils.convert_coordinates(
+        (right_angle_location.x, right_angle_location.y),
+        Y_WINDOW_SIZE
+    )
 
     pygame.draw.polygon(
         display_surface,
@@ -400,16 +418,8 @@ def draw_boat(display_surface: pygame.Surface) -> None:
     )
 
 
-def convert_angle(angle: float) -> float:
-    return -angle
-
-
 def rotate_angle_coordinate(angle_location: Vector2, boat_center_location: Vector2, boat_angle: float) -> Vector2:
     reduced_angle_location = angle_location - boat_center_location
     reduced_angle_location.rotate_ip_rad(boat_angle)
 
     return reduced_angle_location + boat_center_location
-
-
-def convert_coordinates(coordinates: tuple[float, float]) -> tuple[float, float]:
-    return coordinates[0], Y_WINDOW_SIZE - coordinates[1]

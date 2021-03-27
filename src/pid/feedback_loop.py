@@ -1,7 +1,8 @@
 import math
 
 from src.pid import pid
-from src.sensors import gps, compass
+from src.sensors import compass, gps
+from src.utils import vector_utils
 
 x_setpoint: float
 y_setpoint: float
@@ -32,7 +33,7 @@ def calc_deviation_from_course() -> float:
     x_setpoint_direction_vector, y_setpoint_direction_vector = get_setpoint_direction_vector()
 
     return math.degrees(
-        calc_angle_between_vectors(
+        vector_utils.calc_angle_between_vectors(
             x_boat_direction_vector, y_boat_direction_vector,
             x_setpoint_direction_vector, y_setpoint_direction_vector
         )
@@ -40,40 +41,13 @@ def calc_deviation_from_course() -> float:
 
 
 def get_setpoint_direction_vector() -> tuple[float, float]:
-    return normalize_vector(x_setpoint - x_boat_center, y_setpoint - y_boat_center)
-
-
-def normalize_vector(x_coordinate: float, y_coordinate: float) -> tuple[float, float]:
-    vector_length = calc_vector_length(x_coordinate, y_coordinate)
-    return x_coordinate / vector_length, y_coordinate / vector_length
-
-
-def calc_vector_length(x_coordinate: float, y_coordinate: float) -> float:
-    return math.sqrt(
-        math.pow(x_coordinate, 2) + math.pow(y_coordinate, 2)
-    )
-
-
-# https://stackoverflow.com/a/45351293
-def calc_angle_between_vectors(x_first_vector: float, y_first_vector: float,
-                               x_second_vector: float, y_second_vector: float) -> float:
-    first_vector_angle = math.atan2(y_first_vector, x_first_vector)
-    second_vector_angle = math.atan2(y_second_vector, x_second_vector)
-
-    angles_diff = second_vector_angle - first_vector_angle
-
-    if angles_diff < -math.pi:
-        angles_diff = 2 * math.pi - abs(angles_diff)
-    elif angles_diff > math.pi:
-        angles_diff = 2 * -math.pi + abs(angles_diff)
-
-    return -angles_diff
+    return vector_utils.normalize_vector(x_setpoint - x_boat_center, y_setpoint - y_boat_center)
 
 
 def calc_distance_to_target() -> float:
-    distance = math.sqrt(
-        math.pow(x_setpoint - x_boat_center, 2)
-        + math.pow(y_setpoint - y_boat_center, 2)
+    distance = vector_utils.calc_distance_between_vectors(
+        x_setpoint, x_boat_center,
+        y_setpoint, y_boat_center
     )
 
     if is_setpoint_behind_boat():
@@ -86,14 +60,9 @@ def is_setpoint_behind_boat() -> bool:
     x_between_setpoint_and_boat = x_setpoint - x_boat_center
     y_between_setpoint_and_boat = y_setpoint - y_boat_center
 
-    dot_product = calc_dot_product_of_vectors(
+    dot_product = vector_utils.calc_dot_product_of_vectors(
         x_boat_direction_vector, x_between_setpoint_and_boat,
         y_boat_direction_vector, y_between_setpoint_and_boat
     )
 
     return dot_product < 0
-
-
-def calc_dot_product_of_vectors(x_first_vector: float, x_second_vector: float,
-                                y_first_vector: float, y_second_vector: float) -> float:
-    return (x_first_vector * x_second_vector) + (y_first_vector * y_second_vector)
