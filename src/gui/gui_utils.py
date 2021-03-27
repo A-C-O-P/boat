@@ -179,6 +179,7 @@ def denormalize_pid_output(pid_output: float, max_value: float) -> float:
 def react_to_pid_changes(delta_time: float) -> None:
     global is_show_up_arrow, is_show_down_arrow, is_show_left_arrow, is_show_right_arrow
 
+    # Усилиние эффекта нажатия клавиш
     delta_time *= 3
 
     while is_pid_reaction_thread_running:
